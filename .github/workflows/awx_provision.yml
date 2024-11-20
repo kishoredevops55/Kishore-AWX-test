@@ -1,0 +1,63 @@
+name: AWX Control Machine Setup and Test
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Allows manual trigger
+
+jobs:
+  setup-awx:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Step 1: Check out the repository
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    # Step 2: Install dependencies (Docker and Docker Compose)
+    - name: Install Docker and Docker Compose
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y docker.io docker-compose
+        sudo systemctl start docker
+        sudo systemctl enable docker
+
+    # Step 3: Clone the AWX repository
+    - name: Clone AWX Repository
+      run: |
+        git clone https://github.com/ansible/awx.git
+        cd awx
+        git checkout 21.14.0  # Specify a stable AWX version for testing
+
+    # Step 4: Configure the AWX inventory
+    - name: Configure AWX Inventory
+      run: |
+        cd awx/installer
+        echo "localhost ansible_connection=local" > inventory
+        echo "[all]" >> inventory
+        echo "127.0.0.1 ansible_connection=local" >> inventory
+        echo "admin_password=admin" >> inventory  # Default password for testing purposes
+
+    # Step 5: Install AWX
+    - name: Install AWX
+      run: |
+        cd awx/installer
+        ansible-playbook -i inventory install.yml
+      env:
+        ANSIBLE_DEPRECATION_WARNINGS: "False"  # Silence warnings during playbook run
+
+    # Step 6: Output AWX Access URL and Admin Credentials
+    - name: Log AWX Details
+      run: |
+        echo "AWX Control Machine is ready for testing."
+        echo "Access AWX at http://127.0.0.1:80"
+        echo "Login credentials: admin / admin"
+
+    # Step 7: Test AWX API (Optional)
+    - name: Test AWX API
+      run: |
+        curl -X GET http://127.0.0.1:80/api/v2/config/ \
+          -u admin:admin \
+          -H "Content-Type: application/json"
+          
