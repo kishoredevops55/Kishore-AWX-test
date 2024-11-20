@@ -39,10 +39,13 @@ jobs:
       run: |
         kind create cluster --name awx-cluster
 
-    # Step 4: Install AWX Operator
+    # Step 4: Install AWX Operator (Explicit Version)
     - name: Install AWX Operator
       run: |
-        kubectl apply -k "github.com/ansible/awx-operator/config/default?ref=main"
+        # Clone the AWX Operator repo with a stable version
+        git clone --branch 0.37.0 https://github.com/ansible/awx-operator.git
+        cd awx-operator
+        kubectl apply -k config/default
 
     # Step 5: Deploy AWX
     - name: Deploy AWX
