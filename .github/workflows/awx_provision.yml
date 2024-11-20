@@ -15,7 +15,7 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v3
 
-    # Step 2: Install Dependencies (Docker, Kubernetes CLI, Kind, Ngrok)
+    # Step 2: Install Dependencies (Docker, Kubernetes CLI, Kind)
     - name: Install Dependencies
       run: |
         sudo apt-get update
@@ -33,10 +33,8 @@ jobs:
         curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
         chmod +x ./kind
         sudo mv ./kind /usr/local/bin/kind
-        # Install ngrok for tunneling
-        curl -s https://ngrok.com/download | sudo tar xvzf - -C /usr/local/bin
 
-    # Step 3: Create a Kind Cluster
+    # Step 3: Create Kind Cluster
     - name: Create Kind Cluster
       run: |
         kind create cluster --name awx-cluster
@@ -93,17 +91,3 @@ jobs:
         echo "URL: http://localhost:$NODE_PORT"
         echo "Admin Username: admin"
         echo "Admin Password: admin"
-
-    # Optional Step: Expose using ngrok for external access (if needed)
-    - name: Expose AWX UI using ngrok (Optional for External Access)
-      run: |
-        # Run ngrok to expose AWX UI for external access
-        ngrok http $NODE_PORT &
-        sleep 10  # Give ngrok some time to start
-
-        # Get the public URL from ngrok
-        NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
-        echo "AWX is available externally at: $NGROK_URL"
-
-        # Print the URL
-        echo "AWX UI: $NGROK_URL"
