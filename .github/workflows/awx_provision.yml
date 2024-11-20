@@ -49,7 +49,12 @@ jobs:
         cd awx-operator
         kubectl apply -k config/default
 
-    # Step 5: Deploy AWX
+    # Step 5: Create Secret for Admin Password
+    - name: Create Secret for Admin Password
+      run: |
+        kubectl create secret generic awx-admin-password --from-literal=password=admin -n default
+
+    # Step 6: Deploy AWX
     - name: Deploy AWX
       run: |
         cat <<EOF | kubectl apply -f -
@@ -61,16 +66,17 @@ jobs:
           service_type: NodePort
           ingress_type: none
           admin_user: admin
-          admin_password: admin
+          secret_ref:
+            name: awx-admin-password
         EOF
 
-    # Step 6: Wait for AWX to Be Ready
+    # Step 7: Wait for AWX to Be Ready
     - name: Wait for AWX to Be Ready
       run: |
         echo "Waiting for AWX to be ready..."
         kubectl wait --for=condition=Ready pod -l app.kubernetes.io/instance=awx --timeout=300s -n default
 
-    # Step 7: Get the NodePort and expose it using kubectl port-forward
+    # Step 8: Get the NodePort and expose it using kubectl port-forward
     - name: Expose AWX UI using kubectl port-forward
       run: |
         # Get the NodePort for AWX service
@@ -83,7 +89,7 @@ jobs:
         # Print URL with NodePort
         echo "AWX UI is available at http://localhost:$NODE_PORT"
 
-    # Step 8: Output AWX URL and Credentials
+    # Step 9: Output AWX URL and Credentials
     - name: Output AWX Details
       run: |
         echo "AWX is deployed and ready for testing!"
