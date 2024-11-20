@@ -66,8 +66,7 @@ jobs:
           service_type: NodePort
           ingress_type: none
           admin_user: admin
-          secret_ref:
-            name: awx-admin-password
+          admin_password: admin  # Set directly in the AWX spec
         EOF
 
     # Step 7: Wait for AWX to Be Ready
