@@ -11,11 +11,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # Step 1: Check out the repository
+    # Step 1: Checkout the repository
     - name: Checkout Repository
       uses: actions/checkout@v3
 
-    # Step 2: Install Dependencies (Docker, Kubernetes CLI, Kind)
+    # Step 2: Install Dependencies (Docker, Kubernetes CLI, Kind, Ngrok)
     - name: Install Dependencies
       run: |
         sudo apt-get update
@@ -33,17 +33,21 @@ jobs:
         curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
         chmod +x ./kind
         sudo mv ./kind /usr/local/bin/kind
+        # Install ngrok for tunneling
+        curl -s https://ngrok.com/download | sudo tar xvzf - -C /usr/local/bin
 
     # Step 3: Create a Kind Cluster
     - name: Create Kind Cluster
       run: |
         kind create cluster --name awx-cluster
 
-    # Step 4: Install AWX Operator (Explicit Version)
+    # Step 4: Install AWX Operator (Latest Release Tag)
     - name: Install AWX Operator
       run: |
-        # Clone the AWX Operator repo with a stable version
-        git clone --branch 0.37.0 https://github.com/ansible/awx-operator.git
+        # Fetch the latest stable release tag
+        LATEST_RELEASE=$(curl -s https://api.github.com/repos/ansible/awx-operator/releases/latest | grep 'tag_name' | cut -d '"' -f 4)
+        echo "Cloning AWX Operator version $LATEST_RELEASE"
+        git clone --branch $LATEST_RELEASE https://github.com/ansible/awx-operator.git
         cd awx-operator
         kubectl apply -k config/default
 
@@ -68,11 +72,38 @@ jobs:
         echo "Waiting for AWX to be ready..."
         kubectl wait --for=condition=Ready pod -l app.kubernetes.io/instance=awx --timeout=300s -n default
 
-    # Step 7: Output AWX URL and Credentials
+    # Step 7: Get the NodePort and expose it using kubectl port-forward
+    - name: Expose AWX UI using kubectl port-forward
+      run: |
+        # Get the NodePort for AWX service
+        NODE_PORT=$(kubectl get svc awx-service -n default -o=jsonpath='{.spec.ports[0].nodePort}')
+        echo "AWX service is exposed on NodePort $NODE_PORT"
+
+        # Expose the service on localhost
+        kubectl port-forward svc/awx-service $NODE_PORT:$NODE_PORT &
+
+        # Print URL with NodePort
+        echo "AWX UI is available at http://localhost:$NODE_PORT"
+
+    # Step 8: Output AWX URL and Credentials
     - name: Output AWX Details
       run: |
         echo "AWX is deployed and ready for testing!"
         echo "Access the AWX UI using the following details:"
-        echo "URL: http://127.0.0.1:<NodePort>"
+        echo "URL: http://localhost:$NODE_PORT"
         echo "Admin Username: admin"
         echo "Admin Password: admin"
+
+    # Optional Step: Expose using ngrok for external access (if needed)
+    - name: Expose AWX UI using ngrok (Optional for External Access)
+      run: |
+        # Run ngrok to expose AWX UI for external access
+        ngrok http $NODE_PORT &
+        sleep 10  # Give ngrok some time to start
+
+        # Get the public URL from ngrok
+        NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+        echo "AWX is available externally at: $NGROK_URL"
+
+        # Print the URL
+        echo "AWX UI: $NGROK_URL"
